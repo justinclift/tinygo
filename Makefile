@@ -6,7 +6,8 @@ tinygo: build/tinygo
 .PHONY: all tinygo build/tinygo test llvm-build llvm-source clean fmt gen-device gen-device-nrf gen-device-avr
 
 # Default build and source directories, as created by `make llvm-build`.
-LLVM_BUILDDIR ?= llvm-build
+LLVM_DIR ?= /opt/llvm8
+LLVM_BUILDDIR ?= /home/jc/local/build8
 CLANG_SRC ?= llvm/tools/clang
 LLD_SRC ?= llvm/tools/lld
 
@@ -24,9 +25,9 @@ LLD_LIBS = $(START_GROUP) -llldCOFF -llldCommon -llldCore -llldDriver -llldELF -
 
 
 # For static linking.
-CGO_CPPFLAGS=$(shell $(LLVM_BUILDDIR)/bin/llvm-config --cppflags) -I$(abspath $(CLANG_SRC))/include -I$(abspath $(LLD_SRC))/include
+CGO_CPPFLAGS=$(shell $(LLVM_DIR)/bin/llvm-config --cppflags) -I$(abspath $(CLANG_SRC))/include -I$(abspath $(LLD_SRC))/include
 CGO_CXXFLAGS=-std=c++11
-CGO_LDFLAGS=-L$(LLVM_BUILDDIR)/lib $(CLANG_LIBS) $(LLD_LIBS) $(shell $(LLVM_BUILDDIR)/bin/llvm-config --ldflags --libs --system-libs $(LLVM_COMPONENTS))
+CGO_LDFLAGS=-L$(LLVM_DIR)/lib $(CLANG_LIBS) $(LLD_LIBS) $(shell $(LLVM_DIR)/bin/llvm-config --ldflags --libs --system-libs $(LLVM_COMPONENTS))
 
 
 clean:
@@ -73,16 +74,16 @@ llvm-build/build.ninja: llvm-source
 
 # Build LLVM.
 llvm-build: llvm-build/build.ninja
-	cd llvm-build; ninja
+	cd llvm-build; time ninja-build
 
 
 # Build the Go compiler.
 build/tinygo:
-	@if [ ! -f llvm-build/bin/llvm-config ]; then echo "Fetch and build LLVM first by running:\n  make llvm-source\n  make llvm-build"; exit 1; fi
+	@if [ ! -f $(LLVM_DIR)/bin/llvm-config ]; then echo "Fetch and build LLVM first by running:\n  make llvm-source\n  make llvm-build"; exit 1; fi
 	# Generate src/runtime/internal/sys/zversion.go with TinyGo version number, for GoLand and IDEA
 	echo 'package sys' > src/runtime/internal/sys/zversion.go
 	echo >> src/runtime/internal/sys/zversion.go
-	export V=`grep '^const version' version.go|sed 's/const version = "//'|sed 's/"//'`; echo "const TheVersion = \`go${V}\`" >> src/runtime/internal/sys/zversion.go; unset V
+	echo "const TheVersion = \`go`grep '^const version' version.go|sed 's/const version = "//'|sed 's/"//'`\`" >> src/runtime/internal/sys/zversion.go
 	CGO_CPPFLAGS="$(CGO_CPPFLAGS)" CGO_CXXFLAGS="$(CGO_CXXFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" go build -o build/tinygo -tags byollvm .
 	# GoLand and IDEA expect a "go" binary under bin
 	cp -f build/tinygo bin/go
