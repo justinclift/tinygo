@@ -283,7 +283,7 @@ func GC() {
 
 	// Mark phase: mark all reachable objects, recursively.
 	markRoots(globalsStart, globalsEnd)
-	markRoots(getCurrentStackPointer(), stackTop) // assume a descending stack
+	//markRoots(getCurrentStackPointer(), stackTop) // assume a descending stack
 
 	// Sweep phase: free all non-marked objects and unmark marked objects for
 	// the next collection cycle.
