@@ -289,7 +289,7 @@ func GC() {
 	// the next collection cycle.
 	sweep()
 
-	// Show how much has been sweeped, for debugging.
+	// Show how much has been swept, for debugging.
 	if gcDebug {
 		dumpHeap()
 	}
