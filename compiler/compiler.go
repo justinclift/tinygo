@@ -2422,7 +2422,7 @@ func (c *Compiler) ExternalInt64AsPtr() error {
 		}
 
 		if !hasInt64 {
-			// No i64 in the paramter list.
+			// No i64 in the parameter list.
 			continue
 		}
 
