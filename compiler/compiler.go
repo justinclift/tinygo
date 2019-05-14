@@ -2478,7 +2478,7 @@ func (c *Compiler) ExternalInt64AsPtr() error {
 			}
 		} else {
 			// The function has a definition in Go. This means that it may still
-			// be called both Go and from external code.
+			// be called both from Go and from external code.
 			// Keep existing calls with the existing convention in place (for
 			// better performance), but export a new wrapper function with the
 			// correct calling convention.
