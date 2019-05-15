@@ -183,15 +183,6 @@ func init() {
 	poolEnd := heapEnd &^ (bytesPerBlock - 1)
 	numBlocks := (poolEnd - poolStart) / bytesPerBlock
 	endBlock = gcBlock(numBlocks)
-	if gcDebug {
-		println("heapStart:        ", heapStart)
-		println("heapEnd:          ", heapEnd)
-		println("total size:       ", totalSize)
-		println("metadata size:    ", metadataSize)
-		println("poolStart:        ", poolStart)
-		println("# of blocks:      ", numBlocks)
-		println("# of block states:", metadataSize*blocksPerStateByte)
-	}
 	if gcAsserts && metadataSize*blocksPerStateByte < numBlocks {
 		// sanity check
 		runtimePanic("gc: metadata array is too small")
@@ -254,7 +245,7 @@ func alloc(size uintptr) unsafe.Pointer {
 			nextAlloc = index
 			thisAlloc := index - gcBlock(neededBlocks)
 			if gcDebug {
-				println("found memory:", thisAlloc.pointer(), int(size))
+				println("allocated memory:", thisAlloc.pointer(), " size: ", int(size))
 			}
 
 			// Set the following blocks as being allocated.
@@ -356,6 +347,7 @@ func looksLikePointer(ptr uintptr) bool {
 
 // dumpHeap can be used for debugging purposes. It dumps the state of each heap
 // block to standard output.
+//go:export dumpHeap
 func dumpHeap() {
 	println("heap:")
 	for block := gcBlock(0); block < endBlock; block++ {
@@ -373,6 +365,27 @@ func dumpHeap() {
 			println()
 		}
 	}
+}
+
+
+// println() doesn't work in init(), at least not with wasm, so create a callable function for it
+//go:export dumpInfo
+func dumpInfo() {
+	// Copied from init()
+	totalSize := heapEnd - heapStart
+	metadataSize := totalSize / (blocksPerStateByte * bytesPerBlock)
+	poolEnd := heapEnd &^ (bytesPerBlock - 1)
+	numBlocks := (poolEnd - poolStart) / bytesPerBlock
+
+	// Print info to the console
+	println("heapStart:        ", heapStart)
+	println("heapEnd:          ", heapEnd)
+	println("total size:       ", totalSize)
+	println("metadata size:    ", metadataSize)
+	println("poolStart:        ", poolStart)
+	println("bytesPerBlock:    ", bytesPerBlock)
+	println("# of blocks:      ", numBlocks)
+	println("# of block states:", metadataSize*blocksPerStateByte)
 }
 
 func KeepAlive(x interface{}) {
