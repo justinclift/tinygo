@@ -3,9 +3,8 @@
 package runtime
 
 import (
-	"unsafe"
-
 	"device/arm"
+	"unsafe"
 )
 
 const GOARCH = "arm"

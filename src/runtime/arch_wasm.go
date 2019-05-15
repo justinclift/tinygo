@@ -27,8 +27,8 @@ var globalsEndSymbol unsafe.Pointer
 var stackTopSymbol unsafe.Pointer
 
 var (
-	heapStart = uintptr(unsafe.Pointer(&heapStartSymbol))
-	heapEnd   = (heapStart + wasmPageSize - 1) &^ (wasmPageSize - 1) // conservative guess: one page of heap memory
+	heapStart    = uintptr(unsafe.Pointer(&heapStartSymbol))
+	heapEnd      = (heapStart + wasmPageSize - 1) &^ (wasmPageSize - 1) // conservative guess: one page of heap memory
 	globalsStart = uintptr(unsafe.Pointer(&globalsStartSymbol))
 	globalsEnd   = uintptr(unsafe.Pointer(&globalsEndSymbol))
 	stackTop     = uintptr(unsafe.Pointer(&stackTopSymbol))

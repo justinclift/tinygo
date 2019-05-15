@@ -156,6 +156,9 @@ func (c *Compiler) TargetData() llvm.TargetData {
 func (c *Compiler) selectGC() string {
 	gc := c.GC
 	if gc == "" {
+		if c.Config.GOARCH == "wasm" {
+			return "marksweep"
+		}
 		gc = "dumb"
 	}
 	return gc

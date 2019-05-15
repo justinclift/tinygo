@@ -273,8 +273,8 @@ func GC() {
 	}
 
 	// Mark phase: mark all reachable objects, recursively.
-	markRoots(globalsStart, globalsEnd)
-	//markRoots(getCurrentStackPointer(), stackTop) // assume a descending stack
+	markGlobals()
+	markStack()
 
 	// Sweep phase: free all non-marked objects and unmark marked objects for
 	// the next collection cycle.
@@ -297,18 +297,22 @@ func markRoots(start, end uintptr) {
 
 	for addr := start; addr != end; addr += unsafe.Sizeof(addr) {
 		root := *(*uintptr)(unsafe.Pointer(addr))
-		if looksLikePointer(root) {
-			block := blockFromAddr(root)
-			head := block.findHead()
-			if head.state() != blockStateMark {
-				if gcDebug {
-					println("found unmarked pointer", root, "at address", addr)
-				}
-				head.setState(blockStateMark)
-				next := block.findNext()
-				// TODO: avoid recursion as much as possible
-				markRoots(head.address(), next.address())
+		markRoot(addr, root)
+	}
+}
+
+func markRoot(addr, root uintptr) {
+	if looksLikePointer(root) {
+		block := blockFromAddr(root)
+		head := block.findHead()
+		if head.state() != blockStateMark {
+			if gcDebug {
+				println("found unmarked pointer", root, "at address", addr)
 			}
+			head.setState(blockStateMark)
+			next := block.findNext()
+			// TODO: avoid recursion as much as possible
+			markRoots(head.address(), next.address())
 		}
 	}
 }
@@ -367,10 +371,9 @@ func dumpHeap() {
 	}
 }
 
-
-// println() doesn't work in init(), at least not with wasm, so create a callable function for it
-//go:export dumpInfo
-func dumpInfo() {
+// println() doesn't work in init() - at least not with wasm - so create a callable function to retrieve the info
+//go:export dumpMemInfo
+func dumpMemInfo() {
 	// Copied from init()
 	totalSize := heapEnd - heapStart
 	metadataSize := totalSize / (blocksPerStateByte * bytesPerBlock)
