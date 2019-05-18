@@ -1,4 +1,4 @@
-// +build gc.marksweep
+// +build gc.marksweep2
 
 package runtime
 

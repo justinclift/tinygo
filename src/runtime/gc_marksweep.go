@@ -319,6 +319,7 @@ func markRoot(addr, root uintptr) {
 
 // Sweep goes through all memory and frees unmarked memory.
 func sweep() {
+	println("Running sweep...")
 	freeCurrentObject := false
 	for block := gcBlock(0); block < endBlock; block++ {
 		switch block.state() {
@@ -386,7 +387,7 @@ func dumpMemInfo() {
 	println("total size:       ", totalSize)
 	println("metadata size:    ", metadataSize)
 	println("poolStart:        ", poolStart)
-	println("bytesPerBlock:    ", bytesPerBlock)
+	println("bytesPerBlock:    ", int(bytesPerBlock))
 	println("# of blocks:      ", numBlocks)
 	println("# of block states:", metadataSize*blocksPerStateByte)
 }
