@@ -1,4 +1,4 @@
-// +build gcprecise
+// +build gc.marksweep
 
 package runtime
 
