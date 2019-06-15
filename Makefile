@@ -4,30 +4,68 @@ all: tinygo
 tinygo: build/tinygo
 
 # Default build and source directories, as created by `make llvm-build`.
-LLVM_BUILDDIR ?= llvm-build
-CLANG_SRC ?= llvm/tools/clang
-LLD_SRC ?= llvm/tools/lld
+LLVM_BUILDDIR ?= $(abspath llvm-build)
+CLANG_SRC ?= $(abspath llvm-project/clang)
+LIBCXX_SRC ?= $(abspath llvm-project/libcxx)
+LLD_SRC ?= $(abspath llvm-project/lld)
+LLVM_SRC ?= $(abspath llvm-project/llvm)
 
 .PHONY: all tinygo build/tinygo test $(LLVM_BUILDDIR) llvm-source clean fmt gen-device gen-device-nrf gen-device-avr
 
-LLVM_COMPONENTS = all-targets analysis asmparser asmprinter bitreader bitwriter codegen core coroutines debuginfodwarf executionengine instrumentation interpreter ipo irreader linker lto mc mcjit objcarcopts option profiledata scalaropts support target
-
+# Set up OS specific things.
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
     START_GROUP = -Wl,--start-group
     END_GROUP = -Wl,--end-group
 endif
 
+# macOS needs the libcxx include directory, otherwise it doesn't find cmath.
+ifeq ($(UNAME_S),Darwin)
+    MACOS_CXXFLAGS = -I$(LIBCXX_SRC)/include
+endif
+
 CLANG_LIBS = $(START_GROUP) $(abspath $(LLVM_BUILDDIR))/lib/libclang.a -lclangAnalysis -lclangARCMigrate -lclangAST -lclangASTMatchers -lclangBasic -lclangCodeGen -lclangCrossTU -lclangDriver -lclangDynamicASTMatchers -lclangEdit -lclangFormat -lclangFrontend -lclangFrontendTool -lclangHandleCXX -lclangHandleLLVM -lclangIndex -lclangLex -lclangParse -lclangRewrite -lclangRewriteFrontend -lclangSema -lclangSerialization -lclangStaticAnalyzerCheckers -lclangStaticAnalyzerCore -lclangStaticAnalyzerFrontend -lclangTooling -lclangToolingASTDiff -lclangToolingCore -lclangToolingInclusions $(END_GROUP) -lstdc++
 
 LLD_LIBS = $(START_GROUP) -llldCOFF -llldCommon -llldCore -llldDriver -llldELF -llldMachO -llldMinGW -llldReaderWriter -llldWasm -llldYAML $(END_GROUP)
 
+# If we compiled our own LLVM, then use it.
+ifneq ("$(wildcard $(LLVM_BUILDDIR)/bin/clang)","")
+    OUR_CC = $(LLVM_BUILDDIR)/bin/clang
+endif
+ifneq ("$(wildcard $(LLVM_BUILDDIR)/bin/clang++)","")
+    OUR_CXX = $(LLVM_BUILDDIR)/bin/clang++
+endif
+ifneq ("$(wildcard $(LLVM_BUILDDIR)/bin/clang-8)","")
+    OUR_CC = $(LLVM_BUILDDIR)/bin/clang-8
+endif
+ifneq ("$(wildcard $(LLVM_BUILDDIR)/bin/clang++-8)","")
+    OUR_CXX = $(LLVM_BUILDDIR)/bin/clang++-8
+endif
+ifneq ("$(wildcard $(LLVM_BUILDDIR)/bin/llvm-config)","")
+    LLVM_CONFIG = $(LLVM_BUILDDIR)/bin/llvm-config
+endif
 
-# For static linking.
-CGO_CPPFLAGS=$(shell $(LLVM_BUILDDIR)/bin/llvm-config --cppflags) -I$(abspath $(CLANG_SRC))/include -I$(abspath $(LLD_SRC))/include
-CGO_CXXFLAGS=-std=c++11
-CGO_LDFLAGS=-L$(LLVM_BUILDDIR)/lib $(CLANG_LIBS) $(LLD_LIBS) $(shell $(LLVM_BUILDDIR)/bin/llvm-config --ldflags --libs --system-libs $(LLVM_COMPONENTS))
+# If we don't have our own compiled clang & clang++ yet, look for system provided ones.
+ifeq ("$(OUR_CC)","")
+    OUR_CC = $(shell which clang)
+endif
+ifeq ("$(OUR_CC)","")
+    OUR_CC = $(shell which clang-8)
+endif
+ifeq ("$(OUR_CXX)","")
+    OUR_CXX = $(shell which clang++)
+endif
+ifeq ("$(OUR_CXX)","")
+    OUR_CXX = $(shell which clang++-8)
+endif
 
+# Only set the variables if llvm-config was found, otherwise weird errors appear for the user.
+ifneq ("$(wildcard $(LLVM_CONFIG))","")
+   # For static linking.
+   CGO_CPPFLAGS=$(shell $(LLVM_BUILDDIR)/bin/llvm-config --cppflags) -I$(CLANG_SRC)/include -I$(LLD_SRC)/include
+   CGO_CXXFLAGS=$(MACOS_CXXFLAGS) -std=c++11
+   CGO_LDFLAGS=-L$(LLVM_BUILDDIR)/lib $(CLANG_LIBS) $(LLD_LIBS) $(shell $(LLVM_BUILDDIR)/bin/llvm-config --ldflags --libs --system-libs all)
+endif
 
 clean:
 	@rm -rf build
@@ -59,31 +97,27 @@ gen-device-stm32:
 
 
 # Get LLVM sources.
-llvm/README.txt:
-	git clone -b release_80 https://github.com/llvm-mirror/llvm.git llvm
-llvm/tools/clang/README.txt:
-	git clone -b release_80 https://github.com/llvm-mirror/clang.git llvm/tools/clang
-llvm/tools/lld/README.md:
-	git clone -b release_80 https://github.com/llvm-mirror/lld.git llvm/tools/lld
-llvm-source: llvm/README.txt llvm/tools/clang/README.txt llvm/tools/lld/README.md
+llvm-project/README.md:
+	git clone -b release/8.x https://github.com/llvm/llvm-project
+llvm-source: llvm-project/README.md
 
 # Configure LLVM.
-TINYGO_SOURCE_DIR=$(shell pwd)
 $(LLVM_BUILDDIR)/build.ninja: llvm-source
-	mkdir -p $(LLVM_BUILDDIR); cd $(LLVM_BUILDDIR); cmake -G Ninja $(TINYGO_SOURCE_DIR)/llvm "-DLLVM_TARGETS_TO_BUILD=X86;ARM;AArch64;WebAssembly" "-DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=AVR" -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_ASSERTIONS=OFF -DLIBCLANG_BUILD_STATIC=ON -DLLVM_ENABLE_TERMINFO=OFF -DLLVM_ENABLE_ZLIB=OFF
+	mkdir -p $(LLVM_BUILDDIR); cd $(LLVM_BUILDDIR); CC="$(OUR_CC)" CXX="$(OUR_CXX)" cmake -G Ninja $(LLVM_SRC) "-DLLVM_TARGETS_TO_BUILD=X86;ARM;AArch64;WebAssembly" "-DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=AVR" -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_ASSERTIONS=OFF -DLIBCLANG_BUILD_STATIC=ON -DLLVM_ENABLE_TERMINFO=OFF -DLLVM_ENABLE_ZLIB=OFF -DLLVM_ENABLE_PROJECTS="clang;lld" -DLLVM_TOOL_CLANG_TOOLS_EXTRA_BUILD=OFF
 
 # Build LLVM.
+llvm-build: $(LLVM_BUILDDIR)
 $(LLVM_BUILDDIR): $(LLVM_BUILDDIR)/build.ninja
 	cd $(LLVM_BUILDDIR); ninja
 
 
 # Build the Go compiler.
 build/tinygo:
-	@if [ ! -f "$(LLVM_BUILDDIR)/bin/llvm-config" ]; then echo "Fetch and build LLVM first by running:\n  make llvm-source\n  make $(LLVM_BUILDDIR)"; exit 1; fi
-	CGO_CPPFLAGS="$(CGO_CPPFLAGS)" CGO_CXXFLAGS="$(CGO_CXXFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" go build -o build/tinygo -tags byollvm .
+	@if [ ! -f "$(LLVM_BUILDDIR)/bin/llvm-config" ]; then echo "Fetch and build LLVM first by running:"; echo "  make llvm-source"; echo "  make $(LLVM_BUILDDIR)"; exit 1; fi
+	CC="$(OUR_CC)" CXX="$(OUR_CXX)" PATH="$(LLVM_BUILDDIR)/bin:$(PATH)" CGO_CPPFLAGS="$(CGO_CPPFLAGS)" CGO_CXXFLAGS="$(CGO_CXXFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" go build -o build/tinygo -tags byollvm .
 
 test:
-	CGO_CPPFLAGS="$(CGO_CPPFLAGS)" CGO_CXXFLAGS="$(CGO_CXXFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" go test -v -tags byollvm .
+	CC="$(OUR_CC)" CXX="$(OUR_CXX)" PATH="$(LLVM_BUILDDIR)/bin:$(PATH)" CGO_CPPFLAGS="$(CGO_CPPFLAGS)" CGO_CXXFLAGS="$(CGO_CXXFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" go test -v -tags byollvm .
 
 .PHONY: smoketest smoketest-no-avr
 smoketest: smoketest-no-avr
@@ -135,7 +169,7 @@ release: build/tinygo gen-device
 	@mkdir -p build/release/tinygo/pkg/armv7em-none-eabi
 	@echo copying source files
 	@cp -p  build/tinygo                 build/release/tinygo/bin
-	@cp -p $(abspath $(CLANG_SRC))/lib/Headers/*.h build/release/tinygo/lib/clang/include
+	@cp -p $(CLANG_SRC)/lib/Headers/*.h build/release/tinygo/lib/clang/include
 	@cp -rp lib/CMSIS/CMSIS/Include      build/release/tinygo/lib/CMSIS/CMSIS
 	@cp -rp lib/CMSIS/README.md          build/release/tinygo/lib/CMSIS
 	@cp -rp lib/compiler-rt/lib/builtins build/release/tinygo/lib/compiler-rt/lib
