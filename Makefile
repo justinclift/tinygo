@@ -45,18 +45,36 @@ ifneq ("$(wildcard $(LLVM_BUILDDIR)/bin/llvm-config)","")
     LLVM_CONFIG = $(LLVM_BUILDDIR)/bin/llvm-config
 endif
 
-# If we don't have our own compiled clang & clang++ yet, look for system provided ones.
+# If we don't have our own compiled clang & clang++ yet, look for system provided compilers.
 ifeq ("$(OUR_CC)","")
     OUR_CC = $(shell which clang)
 endif
 ifeq ("$(OUR_CC)","")
     OUR_CC = $(shell which clang-8)
 endif
+ifeq ("$(OUR_CC)","")
+    OUR_CC = $(shell which clang-7)
+endif
+ifeq ("$(OUR_CC)","")
+    OUR_CC = $(shell which clang-6)
+endif
+ifeq ("$(OUR_CC)","")
+    OUR_CC = $(shell which gcc)
+endif
 ifeq ("$(OUR_CXX)","")
     OUR_CXX = $(shell which clang++)
 endif
 ifeq ("$(OUR_CXX)","")
     OUR_CXX = $(shell which clang++-8)
+endif
+ifeq ("$(OUR_CXX)","")
+    OUR_CXX = $(shell which clang++-7)
+endif
+ifeq ("$(OUR_CXX)","")
+    OUR_CXX = $(shell which clang++-6)
+endif
+ifeq ("$(OUR_CXX)","")
+    OUR_CXX = $(shell which g++)
 endif
 
 # Only set the variables if llvm-config was found, otherwise weird errors appear for the user.
