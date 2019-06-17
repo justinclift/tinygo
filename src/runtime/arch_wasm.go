@@ -40,3 +40,10 @@ const wasmPageSize = 64 * 1024
 func align(ptr uintptr) uintptr {
 	return (ptr + 3) &^ 3
 }
+
+func getCurrentStackPointer() uintptr {
+	// TODO: Figure out a workaround for the lack of a Wasm instruction for returning the stack pointer
+	//       https://github.com/WebAssembly/design/issues/338#issuecomment-139400926
+	return stackTop
+	// return arm.ReadRegister("sp")
+}
