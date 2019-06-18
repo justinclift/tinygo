@@ -340,7 +340,7 @@ func (c *Compiler) Compile(mainPath string) []error {
 	c.mod.NamedFunction("runtime.sleepTask").SetLinkage(llvm.ExternalLinkage)
 	c.mod.NamedFunction("runtime.setTaskPromisePtr").SetLinkage(llvm.ExternalLinkage)
 	c.mod.NamedFunction("runtime.getTaskPromisePtr").SetLinkage(llvm.ExternalLinkage)
-	c.mod.NamedFunction("runtime.activateTask").SetLinkage(llvm.ExternalLinkage)
+	// c.mod.NamedFunction("runtime.activateTask").SetLinkage(llvm.ExternalLinkage)
 	c.mod.NamedFunction("runtime.scheduler").SetLinkage(llvm.ExternalLinkage)
 
 	// Load some attributes
