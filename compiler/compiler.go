@@ -361,6 +361,15 @@ func (c *Compiler) Compile(mainPath string) []error {
 	// See emitNilCheck in asserts.go.
 	c.mod.NamedFunction("runtime.isnil").AddAttributeAtIndex(1, nocapture)
 
+	// This function is necessary for tracking pointers on the stack in a
+	// portable way (see gc.go). Indicate to the optimizer that the only thing
+	// we'll do is read the pointer.
+	trackPointer := c.mod.NamedFunction("runtime.trackPointer")
+	if !trackPointer.IsNil() {
+		trackPointer.AddAttributeAtIndex(1, nocapture)
+		trackPointer.AddAttributeAtIndex(1, readonly)
+	}
+
 	// Memory copy operations do not capture pointers, even though some weird
 	// pointer arithmetic is happening in the Go implementation.
 	for _, fnName := range []string{"runtime.memcpy", "runtime.memmove"} {
@@ -1008,6 +1017,9 @@ func (c *Compiler) parseInstr(frame *Frame, instr ssa.Instruction) {
 			frame.locals[instr] = llvm.Undef(c.getLLVMType(instr.Type()))
 		} else {
 			frame.locals[instr] = value
+			if len(*instr.Referrers()) != 0 && c.needsStackObjects() {
+				c.trackExpr(frame, instr, value)
+			}
 		}
 	case *ssa.DebugRef:
 		// ignore
